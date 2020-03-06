@@ -1,7 +1,6 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  creationTimestamp: null
   labels:
     app: apache
     version: "1.0"
@@ -11,10 +10,8 @@ spec:
   selector:
     matchLabels:
       app: apache
-  strategy: {}
   template:
     metadata:
-      creationTimestamp: null
       labels:
         app: apache
     spec:
@@ -24,15 +21,12 @@ spec:
         imagePullPolicy: Never        
         ports:
         - containerPort: 80
-        resources: {}
-status: {}
 
 ---
 
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  creationTimestamp: null
   labels:
     app: postgres
     version: "1.0"
@@ -44,10 +38,8 @@ spec:
   selector:
     matchLabels:
       app: postgres
-  strategy: {}
   template:
     metadata:
-      creationTimestamp: null
       labels:
         app: postgres
     spec:
@@ -62,21 +54,49 @@ spec:
           value: "dbuser"
         - name: POSTGRES_PASSWORD
           value: "dbpass"
-        resources: {}
         volumeMounts:
-        - name: postgres
+        - name: postgres-data
           mountPath: /var/lib/postgresql/data
+        - name: postgres-init
+          mountPath: /docker-entrypoint-initdb.d/
+      initContainers:
+      - name: initialize-postgres
+        image: alpine:3
+        volumeMounts:
+        - name: postgres-init
+          mountPath: /docker-entrypoint-initdb.d/
+        command: ["/bin/sh"]
+        env:
+        - name: POSTGRES_USER
+          value: "dbuser"
+        args:
+          - "-c"
+          - |
+            echo "#!/bin/bash
+            set -e
+
+            psql -v ON_ERROR_STOP=1 --username \"$POSTGRES_USER\" <<-EOSQL
+                CREATE DATABASE dbshipping;
+                GRANT ALL PRIVILEGES ON DATABASE dbshipping TO dbuser;
+                CREATE DATABASE dbinvoicing;
+                GRANT ALL PRIVILEGES ON DATABASE dbinvoicing TO dbuser;
+                CREATE DATABASE dborder;
+                GRANT ALL PRIVILEGES ON DATABASE dborder TO dbuser;
+                CREATE DATABASE dbbonus;
+                GRANT ALL PRIVILEGES ON DATABASE dbbonus TO dbuser;
+            EOSQL" > /docker-entrypoint-initdb.d/init-user-db.sh
+            chmod 0755 /docker-entrypoint-initdb.d/init-user-db.sh
       volumes:
-      - name: postgres
+      - name: postgres-data
         emptyDir: {}
-status: {}
+      - name: postgres-init
+        emptyDir: {}
 
 ---
 
 apiVersion: v1
 kind: Service
 metadata:
-  creationTimestamp: null
   labels:
     app: apache
   name: apache
@@ -89,15 +109,12 @@ spec:
   selector:
     app: apache
   type: NodePort
-status:
-  loadBalancer: {}
 
 ---
 
 apiVersion: v1
 kind: Service
 metadata:
-  creationTimestamp: null
   labels:
     app: postgres
   name: postgres
@@ -109,8 +126,6 @@ spec:
   selector:
     app: postgres
   type: NodePort
-status:
-  loadBalancer: {}
 
 ---
 
