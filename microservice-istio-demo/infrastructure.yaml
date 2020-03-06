@@ -45,7 +45,7 @@ spec:
     spec:
       containers:
       - name: postgres
-        image: microservice-istio-postgres:latest        
+        image: postgres:9.6.15       
         imagePullPolicy: Never        
         ports:
         - containerPort: 5432
